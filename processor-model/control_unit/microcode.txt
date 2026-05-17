@@ -1,0 +1,453 @@
+start:
+    jmp instruction_fetch
+
+
+instruction_fetch:
+    sig im_read
+    jmp t.im_rdy 0000 instruction_fetch
+    sig latch_br latch_pc sum_shrt m5_2
+    sig latch_ir
+
+    jmp t.instr_type 0000 system
+    jmp t.instr_type 0001 alu
+    jmp t.instr_type 0010 control
+    jmp t.instr_type 0011 io
+    jmp instruction_fetch
+
+
+system:
+    jmp t.instr 0000 hlt_loop
+    jmp instruction_fetch
+
+hlt_loop:
+    jmp hlt_loop
+
+
+alu:
+    jmp t.arg1 0100 alu_arg1_imm
+    jmp t.arg1 0101 alu_arg1_reg
+
+    sig latch_ja1
+    jmp addr_fetch
+    sig latch_ja2
+    jmp dm_read
+    sig m4_dr m1_mop latch_op1
+    jmp alu_arg2
+
+alu_arg1_imm:
+    sig latch_ja1
+    jmp imm1
+    jmp alu_arg2
+
+alu_arg1_reg:
+    sig latch_ja1
+    jmp register1
+    jmp alu_arg2
+
+alu_arg2:
+    jmp t.arg2 0000 alu_exec
+    jmp t.arg2 0101 alu_arg2_reg
+    jmp t.arg2 0100 alu_arg2_imm
+    jmp alu_exec
+
+alu_arg2_reg:
+    sig latch_ja1
+    jmp register2
+    jmp alu_exec
+
+alu_arg2_imm:
+    sig latch_ja1
+    jmp imm2
+    jmp alu_exec
+
+alu_exec:
+    sig t.alu latch_alu_res latch_nzvc
+
+    jmp t.instr 0000 instruction_fetch
+    jmp t.dest 0001 alu_save_to_addr
+
+    sig latch_ja1
+    jmp save_to_reg
+    jmp instruction_fetch
+
+alu_save_to_addr:
+    sig latch_ja1
+    jmp save_to_addr
+    jmp instruction_fetch
+
+
+imm1:
+    sig im_read
+    jmp t.im_rdy 0000 imm1
+    sig latch_br latch_pc sum_shrt m5_4
+    sig m4_br m1_mop latch_op1
+    jmp t.ja1
+
+register1:
+    sig im_read
+    jmp t.im_rdy 0000 register1
+    sig latch_br latch_pc sum_shrt m5_1
+    sig latch_reg
+    sig t.mux1 latch_op1
+    jmp t.ja1
+
+imm2:
+    sig im_read
+    jmp t.im_rdy 0000 imm2
+    sig latch_br latch_pc sum_shrt m5_4
+    sig m4_br m2_mop latch_op2
+    jmp t.ja1
+
+register2:
+    sig im_read
+    jmp t.im_rdy 0000 register2
+    sig latch_br latch_pc sum_shrt m5_1
+    sig latch_reg
+    sig t.mux2 latch_op2
+    jmp t.ja1
+
+
+addr_fetch:
+    sig latch_ja2
+    jmp t.arg1 0001 Ax_load
+    sig latch_ja2
+    jmp t.arg1 0010 dAx_load
+    sig latch_ja2
+    jmp t.arg1 0011 dAxYx_load
+    sig latch_ja2
+    jmp t.arg1 0110 mAx_load
+    sig latch_ja2
+    jmp t.arg1 0111 Axp_load
+    jmp t.ja1
+
+Ax_load:
+    sig im_read
+    jmp t.im_rdy 0000 Ax_load
+    sig latch_br latch_pc sum_shrt m5_1
+    sig latch_reg
+    sig t.mux1 latch_op1
+    sig alu_pass latch_alu_res latch_ar
+    jmp t.ja2
+
+
+dAx_load:
+    sig im_read
+    jmp t.im_rdy 0000 dAx_load
+    sig latch_br latch_pc sum_shrt m5_1
+    sig latch_reg
+    sig t.mux1 latch_op1
+dAx_disp:
+    sig im_read
+    jmp t.im_rdy 0000 dAx_disp
+    sig latch_br latch_pc sum_shrt m5_2
+    sig m4_br m2_mop latch_op2
+    sig alu_add latch_alu_res latch_ar
+    jmp t.ja2
+
+
+dAxYx_load:
+    sig im_read
+    jmp t.im_rdy 0000 dAxYx_load
+    sig latch_br latch_pc sum_shrt m5_1
+    sig latch_reg
+    sig t.mux1 latch_op1
+dAxYx_idx:
+    sig im_read
+    jmp t.im_rdy 0000 dAxYx_idx
+    sig latch_br latch_pc sum_shrt m5_1
+    sig latch_reg
+    sig t.mux2 latch_op2
+    sig alu_add latch_alu_res latch_ar
+    sig m1_ar latch_op1
+dAxYx_disp:
+    sig im_read
+    jmp t.im_rdy 0000 dAxYx_disp
+    sig latch_br latch_pc sum_shrt m5_2
+    sig m4_br m2_mop latch_op2
+    sig alu_add latch_alu_res latch_ar
+    jmp t.ja2
+
+
+mAx_load:
+    sig im_read
+    jmp t.im_rdy 0000 mAx_load
+    sig latch_br latch_pc sum_shrt m5_1
+    sig latch_reg
+    sig t.mux1 latch_op1
+    sig t.reg alu_dec_lb latch_alu_res latch_ar
+    jmp t.ja2
+
+
+Axp_load:
+    sig im_read
+    jmp t.im_rdy 0000 Axp_load
+    sig latch_br latch_pc sum_shrt m5_1
+    sig latch_reg
+    sig t.mux1 latch_op1
+    sig alu_pass latch_alu_res latch_ar
+    sig t.reg alu_inc_lb latch_alu_res
+    jmp t.ja2
+
+
+save_to_addr:
+    sig m3_alu_res latch_dr
+    sig latch_ja2
+    jmp dm_write
+    jmp t.ja1
+
+save_to_reg:
+    sig t.reg
+    jmp t.ja1
+
+save_dr_to_reg:
+    sig m4_dr m1_mop latch_op1
+    sig alu_pass latch_alu_res
+    sig t.reg
+    jmp t.ja1
+
+
+dm_read:
+    sig dm_read
+    jmp t.dm_rdy 0000 dm_read
+    sig latch_dr m3_dm
+    jmp t.ja2
+
+dm_write:
+    sig dm_write
+    jmp t.dm_rdy 0000 dm_write
+    jmp t.ja2
+
+io_read:
+    sig io_read
+    jmp t.io_rdy 0000 io_read
+    sig latch_dr m3_io
+    jmp t.ja2
+
+io_write:
+    sig io_write
+    jmp t.io_rdy 0000 io_write
+    jmp t.ja2
+
+control:
+    jmp t.instr 0000 jmp_op
+    jmp t.instr 0001 beq_op
+    jmp t.instr 0010 bne_op
+    jmp t.instr 0011 bmi_op
+    jmp t.instr 0100 bpl_op
+    jmp t.instr 0101 bvs_op
+    jmp t.instr 0110 bcs_op
+    jmp t.instr 0111 bcc_op
+    jmp t.instr 1000 call_op
+    jmp t.instr 1001 ret_op
+    jmp instruction_fetch
+
+
+jmp_op:
+    sig im_read
+    jmp t.im_rdy 0000 jmp_op
+    sig latch_br latch_pc sum_shrt m5_4
+    sig m5_br sum_load latch_pc
+    jmp instruction_fetch
+
+
+beq_op:
+    sig im_read
+    jmp t.im_rdy 0000 beq_op
+    sig latch_br latch_pc sum_shrt m5_2
+    jmp t.z 0000 instruction_fetch
+    sig m5_br sum_shrt latch_pc
+    jmp instruction_fetch
+
+bne_op:
+    sig im_read
+    jmp t.im_rdy 0000 bne_op
+    sig latch_br latch_pc sum_shrt m5_2
+    jmp t.z 0001 instruction_fetch
+    sig m5_br sum_shrt latch_pc
+    jmp instruction_fetch
+
+bmi_op:
+    sig im_read
+    jmp t.im_rdy 0000 bmi_op
+    sig latch_br latch_pc sum_shrt m5_2
+    jmp t.n 0000 instruction_fetch
+    sig m5_br sum_shrt latch_pc
+    jmp instruction_fetch
+
+bpl_op:
+    sig im_read
+    jmp t.im_rdy 0000 bpl_op
+    sig latch_br latch_pc sum_shrt m5_2
+    jmp t.n 0001 instruction_fetch
+    sig m5_br sum_shrt latch_pc
+    jmp instruction_fetch
+
+bvs_op:
+    sig im_read
+    jmp t.im_rdy 0000 bvs_op
+    sig latch_br latch_pc sum_shrt m5_2
+    jmp t.v 0000 instruction_fetch
+    sig m5_br sum_shrt latch_pc
+    jmp instruction_fetch
+
+bcs_op:
+    sig im_read
+    jmp t.im_rdy 0000 bcs_op
+    sig latch_br latch_pc sum_shrt m5_2
+    jmp t.c 0000 instruction_fetch
+    sig m5_br sum_shrt latch_pc
+    jmp instruction_fetch
+
+bcc_op:
+    sig im_read
+    jmp t.im_rdy 0000 bcc_op
+    sig latch_br latch_pc sum_shrt m5_2
+    jmp t.c 0001 instruction_fetch
+    sig m5_br sum_shrt latch_pc
+    jmp instruction_fetch
+
+
+call_op:
+    sig m1_fp latch_op1
+    sig alu_pass latch_alu_res
+    sig m3_alu_res latch_dr
+
+    sig m1_sp latch_op1
+    sig alu_dec_lb latch_alu_res latch_sp latch_ar
+
+    sig latch_ja2
+    jmp dm_write
+
+    sig m1_sp latch_op1
+    sig alu_pass latch_alu_res latch_fp
+
+    sig m3_pc latch_dr
+
+    sig m1_sp latch_op1
+    sig alu_dec_lb latch_alu_res latch_sp latch_ar
+
+    sig latch_ja2
+    jmp dm_write
+
+    sig im_read
+    jmp t.im_rdy 0000 call_op_w
+    sig latch_br latch_pc sum_shrt m5_4
+    sig m5_br sum_load latch_pc
+    jmp instruction_fetch
+
+call_op_w:
+    sig im_read
+    jmp t.im_rdy 0000 call_op_w
+    sig latch_br latch_pc sum_shrt m5_4
+    sig m5_br sum_load latch_pc
+    jmp instruction_fetch
+
+
+ret_op:
+    sig m1_fp latch_op1
+    sig alu_dec_lb latch_alu_res latch_ar
+
+    sig latch_ja2
+    jmp dm_read
+
+    sig m5_dr sum_load latch_pc
+
+    sig m1_fp latch_op1
+    sig alu_inc_lb latch_alu_res latch_sp
+
+    sig m1_fp latch_op1
+    sig alu_pass latch_alu_res latch_ar
+
+    sig latch_ja2
+    jmp dm_read
+
+    sig m4_dr m1_mop latch_op1
+    sig alu_pass latch_alu_res latch_fp
+
+    jmp instruction_fetch
+
+
+io:
+    jmp t.instr 0000 in_op
+    jmp t.instr 0001 out_op
+    jmp instruction_fetch
+
+
+out_op:
+    jmp t.arg1 0100 out_imm
+    jmp t.arg1 0101 out_reg
+
+    sig latch_ja1
+    jmp addr_fetch
+    sig latch_ja2
+    jmp dm_read
+    sig m4_dr m1_mop latch_op1
+    jmp out_send
+
+out_imm:
+    sig latch_ja1
+    jmp imm1
+    jmp out_send
+
+out_reg:
+    sig latch_ja1
+    jmp register1
+    jmp out_send
+
+out_send:
+    sig alu_pass latch_alu_res
+    sig m3_alu_res latch_dr
+
+    sig im_read
+    jmp t.im_rdy 0000 out_send
+    sig latch_br latch_pc sum_shrt m5_1
+
+    sig latch_ja2
+    jmp io_write
+    jmp instruction_fetch
+
+
+in_op:
+    jmp t.arg1 0101 in_op_reg
+
+    sig latch_ja1
+    jmp addr_fetch
+
+    sig im_read
+    jmp t.im_rdy 0000 in_op
+    sig latch_br latch_pc sum_shrt m5_1
+
+    sig latch_ja2
+    jmp io_read
+
+    sig latch_ja2
+    jmp dm_write
+    jmp instruction_fetch
+
+
+in_op_reg:
+    sig im_read
+    jmp t.im_rdy 0000 in_op_reg
+    sig latch_br latch_pc sum_shrt m5_1
+    sig latch_reg
+
+    sig im_read
+    jmp t.im_rdy 0000 in_op_reg_port
+    sig latch_br latch_pc sum_shrt m5_1
+
+    sig latch_ja2
+    jmp io_read
+
+    sig latch_ja1
+    jmp save_dr_to_reg
+    jmp instruction_fetch
+
+in_op_reg_port:
+    sig im_read
+    jmp t.im_rdy 0000 in_op_reg_port
+    sig latch_br latch_pc sum_shrt m5_1
+    sig latch_ja2
+    jmp io_read
+    sig latch_ja1
+    jmp save_dr_to_reg
+    jmp instruction_fetch
