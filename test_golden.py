@@ -23,7 +23,10 @@ def test_golden():
 
         expected = (test_case / "expect.out").read_text()
 
-        assert result.returncode == 0
+        assert result.returncode == 0, (
+            f"\nSTDOUT:\n{result.stdout}"
+            f"\nSTDERR:\n{result.stderr}"
+        )  
         assert expected.strip() in result.stdout.strip(), (
             f"Failed test {test_case.name}"
         )
