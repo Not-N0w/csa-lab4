@@ -9,26 +9,29 @@ def test_golden():
         if not test_case.is_dir():
             continue
 
-        result = subprocess.run(
-            [
-                "python3",
-                "main.py",
-                str(test_case / "simulation.conf"),
-                str(test_case / "io.in"),
-                str(test_case / "code.lisp"),
-            ],
-            capture_output=True,
-            text=True,
-        )
+        with open(test_case / "stdin.txt", "r") as stdin_file:
+            result = subprocess.run(
+                [
+                    "python3",
+                    "main.py",
+                    str(test_case / "simulation.conf"),
+                    str(test_case / "code.lisp"),
+                ],
+                stdin=stdin_file,
+                capture_output=True,
+                text=True,
+            )
 
         expected = (test_case / "expect.out").read_text()
 
         assert result.returncode == 0, (
             f"\nSTDOUT:\n{result.stdout}"
             f"\nSTDERR:\n{result.stderr}"
-        )  
+        )
+
         assert expected.strip() in result.stdout.strip(), (
             f"Failed test {test_case.name}"
         )
+
 
 test_golden()
