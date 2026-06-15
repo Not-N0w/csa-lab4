@@ -58,5 +58,5 @@ all_signals = [
     "im_read", "dm_read", "dm_write", "io_read", "io_write",
 ]
 
-microinstructions_file = "/Users/yaroslavmakogon/Documents/itmo/csa/csa-lab4/processor_model/control_unit/microcode/microcode-res.bin"
+microinstructions_file = "./processor_model/control_unit/microcode/microcode-res.bin"
 
