@@ -14,7 +14,7 @@ def start(layer):
     if layer == "lisp" or layer == "":        
         with open(LISP_FILE, 'r') as file:
             dm_data, asm = generate_asm(file.read())
-            print(asm)
+            #print(asm)
             im_data = assemble(asm)
     elif layer == "asm":
          with open(ASM_FILE, 'r') as file:

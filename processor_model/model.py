@@ -244,7 +244,8 @@ def run(im, dm, io_data, steps=200, conf_path="simulation.conf"):
     mode, main, start, end = load_conf(conf_path)
 
     if start:
-        print(render(start, []))
+        rendered = render(start, [])
+        if rendered != "": print(rendered)
 
     for i in range(steps):
         memory_units["im"].tick()
@@ -266,9 +267,11 @@ def run(im, dm, io_data, steps=200, conf_path="simulation.conf"):
             signal_execute(signal)
 
         if mode == "TICK":
-            print(render(main, signals))
+            rendered = render(main, signals)
+            if rendered != "": print(rendered)
         elif mode == "INSTR" and control_unit.ir_latched:
-            print(render(main, signals))
+            rendered = render(main, signals)
+            if rendered != "": print(rendered)
 
         if not signals and control_unit.pc == upc_before:
             print(f"; HALT (uPC={control_unit.pc}) at step {i}")

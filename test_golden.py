@@ -28,7 +28,8 @@ def test_golden():
             f"\nSTDOUT:\n{result.stdout}"
             f"\nSTDERR:\n{result.stderr}"
         )
-
+        print(expected.strip())
+        print(result.stdout.strip())
         assert expected.strip() in result.stdout.strip(), (
             f"Failed test {test_case.name}"
         )
