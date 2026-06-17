@@ -1,28 +1,37 @@
 from translator.lisp.translator import generate_asm, string_data
-from translator.asm.translator import assemble
+from translator.asm.translator import assemble, disasm_map
 from processor_model.model import run
+from translator.binio import write_im, write_dm, read_im, read_dm
+
 
 LISP_FILE = "code.lisp"
 ASM_FILE = "code.asm"
-SIMULATION_CONF = "simulation.conf"
+IM_BIN = "out.im.bin"
+DM_BIN = "out.dm.bin"
 IO_IN = "io.in"
+LOG = "journal.log"
+
+
+def build(layer):
+    if layer in ("lisp", ""):
+        asm = generate_asm(open(LISP_FILE).read())
+        dm = string_data()
+    else:
+        asm = open(ASM_FILE).read()
+        dm = {}
+    write_im(assemble(asm), IM_BIN)
+    write_dm(dm, DM_BIN)
+    return disasm_map(asm)
+
 
 def start(layer):
-    im_data = []
-    io_data = eval(open("io.in").read())
-    dm_data = {}
-    if layer == "lisp" or layer == "":        
-        with open(LISP_FILE, 'r') as file:
-            dm_data, asm = generate_asm(file.read())
-            #print(asm)
-            im_data = assemble(asm)
-    elif layer == "asm":
-         with open(ASM_FILE, 'r') as file:
-            im_data = assemble(file.read())
-    
-
-    run(im_data,dm_data, io_data, 20000, SIMULATION_CONF)
+    disasm = build(layer)
+    im = read_im(IM_BIN)
+    dm = read_dm(DM_BIN)
+    io = eval(open(IO_IN).read())
+    print(disasm)
+    run(im, dm, io, 200000, LOG, disasm)
 
 
-layer = input("RUN: ")
-start(layer)
+if __name__ == "__main__":
+    start(input("RUN: "))

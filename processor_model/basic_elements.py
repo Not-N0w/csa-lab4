@@ -1,16 +1,18 @@
 from abc import ABC, abstractmethod
 
+
 class Source(ABC):
     @abstractmethod
     def get(self):
         pass
+
 
 class Register(Source):
     def __init__(self, size=32):
         self.size = size
         self.value = 0
         self.source = None
-    
+
     def set_source(self, source):
         self.source = source
 
@@ -20,9 +22,9 @@ class Register(Source):
         return self.source.get()
 
     def get(self):
-        mask = (1 << self.size) - 1
-        return self.value & mask
-    
+        return self.value & ((1 << self.size) - 1)
+
+
 class Mux(Source):
     def __init__(self):
         self.options = {}
@@ -41,24 +43,28 @@ class Mux(Source):
         if self.signal not in self.options:
             raise Exception("Unknown mux signal: " + self.signal)
         return self.options[self.signal].get()
-    
+
+
 class ALU(Source):
     MASK = 0xFFFFFFFF
 
     def __init__(self, nzvc_reg):
-        self.op1 : Source = None
-        self.op2 : Source = None
+        self.op1 = None
+        self.op2 = None
         self.signal = ""
         self.lb = True
-        self.nzvc_reg : Register = nzvc_reg
+        self.nzvc_reg = nzvc_reg
 
-    def set_op1(self, op1: Source):
+    def set_op1(self, op1):
         self.op1 = op1
-    def set_op2(self, op2: Source):
+
+    def set_op2(self, op2):
         self.op2 = op2
+
     def set_signal(self, signal):
         self.signal = signal
-    def set_lb(self, lb: bool):
+
+    def set_lb(self, lb):
         self.lb = lb
 
     def _raw(self):
@@ -93,11 +99,12 @@ class ALU(Source):
         z = "1" if res == 0 else "0"
         return int(n + z + "00", 2)
 
+
 class MemoryUnit(Source):
     def __init__(self, delay=5):
         self.ready = False
         self.data = {}
-        self.addr_source : Source = None
+        self.addr_source = None
         self.size_source = None
         self.inner_counter = -1
         self.delay = delay
@@ -110,7 +117,7 @@ class MemoryUnit(Source):
         else:
             self.data = {a: (v & 0xFF) for a, v in data.items()}
 
-    def set_addr_source(self, source: Source):
+    def set_addr_source(self, source):
         self.addr_source = source
 
     def set_size_source(self, source):
@@ -140,10 +147,8 @@ class MemoryUnit(Source):
             if self.pending_write is not None:
                 value, size = self.pending_write
                 addr = self.addr_source.get()
-                # big-endian: старший байт по младшему адресу
                 for i in range(size):
-                    shift = 8 * (size - 1 - i)
-                    self.data[addr + i] = (value >> shift) & 0xFF
+                    self.data[addr + i] = (value >> (8 * (size - 1 - i))) & 0xFF
             self.ready = True
             self.inner_counter = -1
 
@@ -155,29 +160,16 @@ class MemoryUnit(Source):
         self.inner_counter = -1
         self.pending_write = None
 
-    def _read_bytes(self, addr, size):
-        val = 0
-        for i in range(size):
-            val = (val << 8) | self.data.get(addr + i, 0)
-        return val
-
     def get(self):
         if not self.ready:
             raise Exception("Memory unit is not ready")
         addr = self.addr_source.get()
-        val = self._read_bytes(addr, self.read_size)
+        val = 0
+        for i in range(self.read_size):
+            val = (val << 8) | self.data.get(addr + i, 0)
         self._consume()
         return val
 
-    def write(self, value):
-        if not self.ready:
-            raise Exception("Memory unit is not ready")
-        addr = self.addr_source.get()
-        size = self._size()
-        for i in range(size):
-            shift = 8 * (size - 1 - i)
-            self.data[addr + i] = (value >> shift) & 0xFF
-        self._consume()
 
 class IOPort:
     def __init__(self, delay=5):
@@ -220,16 +212,14 @@ class IOPort:
 class IODevice(Source):
     def __init__(self, n=3, delay=5):
         self.ports = [IOPort(delay) for _ in range(n)]
-        self.port_source : Source = None
+        self.port_source = None
 
     def set_port_source(self, source):
         self.port_source = source
 
     def _port(self):
         idx = int(self.port_source.get()) & 0xFF
-        if idx >= len(self.ports):
-            return None
-        return self.ports[idx]
+        return self.ports[idx] if idx < len(self.ports) else None
 
     def tick(self):
         for p in self.ports:
@@ -237,11 +227,13 @@ class IODevice(Source):
 
     def start_read(self):
         p = self._port()
-        if p: p.start_read()
+        if p:
+            p.start_read()
 
     def start_write(self, word):
         p = self._port()
-        if p: p.start_write(word)
+        if p:
+            p.start_write(word)
 
     def is_ready(self):
         p = self._port()
@@ -255,27 +247,29 @@ class IODevice(Source):
 class Sum(Source):
     def __init__(self):
         self.signal = ""
-        self.op1 : Source = None
-        self.op2 : Source = None
+        self.op1 = None
+        self.op2 = None
 
-    def set_op1(self, op1: Source):
+    def set_op1(self, op1):
         self.op1 = op1
-    def set_op2(self, op2: Source):
+
+    def set_op2(self, op2):
         self.op2 = op2
+
     def set_signal(self, signal):
         self.signal = signal
-    
+
     def get(self):
         if self.signal == "sum_shrt":
             return (self.op1.get() + self.op2.get()) & 0xFFFFFFFF
         if self.signal == "sum_load":
             return self.op2.get() & 0xFFFFFFFF
-        else:
-            raise Exception("Unknown sum signal: " + self.signal)
-    
+        raise Exception("Unknown sum signal: " + self.signal)
+
+
 class NumberSource(Source):
     def __init__(self, value):
         self.value = value
-    
+
     def get(self):
         return self.value

@@ -1,0 +1,50 @@
+run_mode: asm
+in_source: 'in D0, #0
+
+  in D1, #0
+
+  in D2, #0
+
+  in D3, #0
+
+  add.l D0, D2
+
+  bcc no_carry
+
+  add.l #1, D1
+
+  no_carry:
+
+  add.l D1, D3
+
+  out D2, #1
+
+  out D3, #1
+
+  hlt'
+in_stdin: 0xffff_ffff, 0xaaaa_aaaa, 0x8000_0000, 0x1111_1111
+in_mode: numbers
+out_code_hex: '0000 - 83A00000       - in D0, #0
+
+  0004 - 83A00100       - in D1, #0
+
+  0008 - 83A00200       - in D2, #0
+
+  000C - 83A00300       - in D3, #0
+
+  0010 - 89B40002       - add.l D0, D2
+
+  0014 - BA000007       - bcc no_carry
+
+  0018 - 89940000000101 - add.l #1, D1
+
+  no_carry:
+
+  001F - 89B40103       - add.l D1, D3
+
+  0023 - 8BA00201       - out D2, #1
+
+  0027 - 8BA00301       - out D3, #1
+
+  002B - 0000           - hlt'
+out_stdout: "=== IO OUTPUT ===\n  io[1] out: hex=[7fffffff bbbbbbbb] str=\"ÿ»\"\n"

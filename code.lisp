@@ -1,2 +1,2 @@
-(setq x 3)
-(while (< 0 x) (print (read)))
+(setq x (read))
+(while (!= x 0) (print x) (setq x (read)))

@@ -1,158 +1,168 @@
 # ISA
 
-Разделеннаыя память для инструкций и данных (harv)
+Гарвардская архитектура: раздельная память инструкций (IM) и память данных (DM).
 
-D0-D3 - Data registers - 4 bytes
-A0-A3 - Address registers - 4 bytes
-SP - Stack pointer - 4 bytes
-FP - Frame pointer - 4 bytes
-PC - Program counter - 4 bytes
-PS - Program state NZVC - 4 bits
+## Регистры
 
+| Регистр | Назначение            | Размер |
+|---------|-----------------------|--------|
+| D0-D3   | регистры данных       | 32 бита |
+| A0-A3   | адресные регистры     | 32 бита |
+| SP      | указатель стека       | 32 бита |
+| FP      | указатель кадра       | 32 бита |
+| PC      | счётчик команд        | 32 бита |
+| PS      | флаги состояния NZVC  | 4 бита  |
 
-# Instruction formats
-0. [opcode : 16]
-1. [opcode : 16][op : 4][emp : 4]
-2. [opcode : 16][op : 4][emp : 4][disp : 16]
-3. [opcode : 16][op : 4][emp : 4][op : 4][emp : 4][disp : 16]
-4. [opcode : 16][op : 4][emp : 4][op : 4][emp : 4]
-5. [opcode : 16][imm : 32][op : 4][emp : 4]
-6. [opcode : 16][op : 4][emp : 4][disp : 16][op : 4][emp : 4]
-7. [opcode : 16][op : 4][emp : 4][disp : 16][imm : 32]
-8. [opcode : 16][op : 4][emp : 4][op : 4][emp : 4][disp : 16][op : 4][emp : 4]
-9. [opcode : 16][op : 4][emp : 4][op : 4][emp : 4][disp : 16][imm : 32]
-10. [opcode : 16][disp : 16]
-11. [opcode : 16][abs_addr : 32]
+Машинное слово - 32 бита. Память байтовая, слова хранятся в big-endian.
 
-12. [opcode : 16][op : 4][emp : 4][port : 8]
-13. [opcode : 16][imm : 32][port : 8]
-14. [opcode : 16][op : 4][emp : 4][disp : 16][port : 8]
-15. [opcode : 16][op : 4][emp : 4][op : 4][emp : 4][disp : 16][port : 8]
+## Кодирование инструкции
 
+Опкод занимает 16 бит:
 
-## Addressing modes
-0. `1000, Dx`  - Immediate
-1. `Ax, Dy`    - Register direct
-2. `(Ax)`     - Address Register Indirect
-3. `d(Ax)`    - Address Register Indirect with Displacement
-4. `(Ax)+`    - Address Register Indirect with Postincrement
-5. `-(Ax)`    - Address Register Indirect with Predecrement
-6. `d(Ax, Yx)`- Address Register Indirect with Index
+```
+[lb:1][instr:4][instr_type:3][arg1_type:3][arg2_type:3][is_addr_dest:1][rsv:1]
+```
 
-# ISA 
+- `lb` - длина операнда: 1 = слово (4 байта, `.l`), 0 = байт (`.b`).
+- `instr` - код инструкции внутри своего типа.
+- `instr_type` - 000 system, 001 alu, 010 control, 011 io.
+- `arg1_type`, `arg2_type` - режим адресации каждого операнда.
+- `is_addr_dest` - 1, если приёмником является память (а не регистр).
+- `rsv` - зарезервированный бит.
 
-All instructions that have arguments as registers have 2 modes: `.l` - long data mode (4 bytes), `.b` - byte data mode (1 byte). 
-Ex: `mov.l d0 d1`; `add.b d0 d1`
+За опкодом идут байты операндов в порядке: сначала всё, что относится к
+первому операнду, затем ко второму. Регистр кодируется одним байтом (номер в
+младших 4 битах), непосредственный операнд - 4 байтами, смещение - 2 байтами.
+Полная инструкция занимает от 2 до 7 байт.
 
+## Форматы инструкций
 
-## Instructions
+Ниже `op` - байт регистра (4 бита номер + 4 бита не используются), `disp` -
+2-байтное смещение, `imm` - 4-байтный непосредственный операнд, `abs_addr` -
+4-байтный абсолютный адрес, `port` - 1 байт номера порта.
 
-*Note: In each instruction only one addressing operand is allowed. The examples below use the `.l` (long) suffix for demonstration, but `.b` is also applicable where data manipulation occurs.*
+```
+0.  [opcode:16]                                              ; без операндов (hlt, nop, ret)
+1.  [opcode:16][op:8]                                        ; один регистр
+2.  [opcode:16][op:8][disp:16]                               ; d(Ax)
+3.  [opcode:16][op:8][op:8][disp:16]                         ; d(Ax,Yx)
+4.  [opcode:16][op:8][op:8]                                  ; два регистра / (Ax) + регистр
+5.  [opcode:16][imm:32][op:8]                                ; #imm -> регистр
+10. [opcode:16][disp:16]                                     ; условный переход (PC-relative)
+11. [opcode:16][abs_addr:32]                                 ; jmp / call (абсолютный)
+12. [opcode:16][op:8][port:8]                                ; in/out регистр, #port
+13. [opcode:16][imm:32][port:8]                              ; out #imm, #port
+```
 
-### Data movement
+Форматы переменной длины: выборка инструкции читает опкод (2 байта), затем
+дочитывает операнды по мере декодирования. PC двигается на 1/2/4 байта в
+зависимости от того, какая часть инструкции считывается.
 
-- Move 
-mov.l A B : A -> B
+## Режимы адресации
 
-### Arithmetics
+Коды совпадают с полями `arg*_type` в опкоде:
 
-- Add
-add.l A B : A + B -> B
+| Код | Запись      | Режим                                          |
+|-----|-------------|------------------------------------------------|
+| 000 | -           | операнд отсутствует                            |
+| 001 | `(Ax)`      | косвенная через адресный регистр               |
+| 010 | `d(Ax)`     | косвенная со смещением                         |
+| 011 | `d(Ax,Yx)`  | косвенная с индексом                           |
+| 100 | `#imm`      | непосредственная                               |
+| 101 | `Dx` / `Ax` | регистровая (прямая)                           |
+| 110 | `-(Ax)`     | косвенная с пред-декрементом                   |
+| 111 | `(Ax)+`     | косвенная с пост-инкрементом                   |
 
-- Subtract
-sub.l A B : B - A -> B
+## Режимы данных: long и byte
 
-- Multiply
-mul.l A B : A * B -> B
+Инструкции, работающие с регистрами/памятью, имеют два режима:
+`.l` - длинный (4 байта, машинное слово) и `.b` - байтовый (1 байт).
+Режим кодируется битом `lb` в опкоде. Пример: `mov.l D0, D1`, `add.b D0, D1`.
 
-- Divide
-div.l A B : B / A -> B
+Для `-(Ax)` и `(Ax)+` величина пред-декремента / пост-инкремента зависит от
+режима: 4 для `.l`, 1 для `.b` (в микрокоде - сигналы `alu_dec_lb` / `alu_inc_lb`).
 
-### Bitwise
+## Инструкции
 
-- Not (Bitwise inversion)
-not.l A : ~A -> A
+Везде ниже семантика записана как `источник -> приёмник`. Приёмник - правый
+операнд (если `is_addr_dest=1`, приёмником становится память). Если в команде 
+есть АДРЕСНЫЙ операнд, то он ВСЕГДА будет первым в записи инструкции. Если он
+является destenation, то `is_addr_dest = 1`.
 
-- Negate (Two's complement)
-neg.l A : -A -> A
+### Пересылка (system)
 
-- Clear
-clr.l A : 0 -> A
+```
+mov.l A, B   : A -> B
+```
 
-- Or (Bitwise OR)
-or.l A B : A | B -> B
+Также к system относятся `hlt` (останов) и `nop` (нет операции).
 
-- And (Bitwise AND)
-and.l A B : A & B -> B
+### Арифметика (alu)
 
-- Xor (Bitwise Exclusive OR)
-xor.l A B : A ^ B -> B
+```
+add.l A, B   : B + A -> B
+sub.l A, B   : B - A -> B
+mul.l A, B   : B * A -> B
+div.l A, B   : B / A -> B
+cmp.l A, B   : вычисляет B - A, выставляет флаги NZVC, результат не сохраняет
+```
 
-- Compare (set nzvc for A - B)
-cmp.l A B
+### Побитовые и унарные (alu)
 
-### Shifts
+```
+not.l A      : ~A -> A
+or.l  A, B   : B | A -> B
+and.l A, B   : B & A -> B
+xor.l A, B   : B ^ A -> B
+pass.l A     : A -> результат (пропустить операнд без изменений)
+inc.l A      : A + (4 или 1) -> A   ; шаг зависит от lb
+dec.l A      : A - (4 или 1) -> A   ; шаг зависит от lb
+```
 
-- Arithmetic Shift Left
-asl.l A B : B << A -> B
+### Сдвиги (alu)
 
-- Arithmetic Shift Right
-asr.l A B : B >> A (arithmetic) -> B
+```
+asl.l A, B   : B << A (арифметический) -> B
+asr.l A, B   : B >> A (арифметический, с сохранением знака) -> B
+lsl.l A, B   : B << A (логический) -> B
+lsr.l A, B   : B >> A (логический) -> B
+```
 
-- Logical Shift Left
-lsl.l A B : B << A (logical) -> B
+### Управление потоком (control)
 
-- Logical Shift Right
-lsr.l A B : B >> A (logical) -> B
+Переходы изменяют PC. Условные переходы (`b*`) - PC-relative (2-байтное
+смещение со знаком относительно PC), `jmp`/`call` - абсолютный 4-байтный адрес.
 
-### Control flow
-
-*Note: Branch and jump instructions typically operate on the Program Counter (PC) and evaluate status flags (N=Negative, Z=Zero, V=Overflow, C=Carry).*
-
-- Jump (Unconditional)
+```
 jmp abs_addr : abs_addr -> PC
+beq A        : если Z == 1, переход
+bne A        : если Z == 0, переход
+bmi A        : если N == 1, переход
+bpl A        : если N == 0, переход
+bvs A        : если V == 1, переход
+bcs A        : если C == 1, переход
+bcc A        : если C == 0, переход
+```
 
-- Branch on Equal (Z = 1)
-beq A : if (Z == 1) A -> PC
+Вызов и возврат из подпрограммы работают через стек и регистр кадра FP:
 
-- Branch on Not Equal (Z = 0)
-bne A : if (Z == 0) A -> PC
+```
+call abs_addr : FP -> -(SP) ; SP -> FP ; PC -> -(SP) ; abs_addr -> PC
+ret           : (FP-4) -> PC ; FP+4 -> SP ; (FP) -> FP
+```
 
-- Branch on Minus / Negative (N = 1)
-bmi A : if (N == 1) A -> PC
+`call` и `ret` всегда работают в длинном режиме (шаг стека - 4 байта).
 
-- Branch on Plus / Positive (N = 0)
-bpl A : if (N == 0) A -> PC
+### Ввод-вывод (io)
 
-- Branch on Overflow Set (V = 1)
-bvs A : if (V == 1) A -> PC
+Port-mapped, три порта, адресуются номером. Обмен идёт машинными словами.
 
-- Branch on Overflow Clear (V = 0)
-bvc A : if (V == 0) A -> PC
+```
+in  A, #port  : слово из порта -> A
+out A, #port  : A -> порт
+```
 
-- Branch on Carry Set (C = 1)
-bcs A : if (C == 1) A -> PC
+## Поток управления и флаги
 
-- Branch on Carry Clear (C = 0)
-bcc A : if (C == 0) A -> PC
-
-
-- Call procedure (FP -> -(SP) SP -> FP ; PC -> -(SP) ; abs_addr -> PC)
-call abs_addr
-
-- Return from procedure ( (FP-4) -> PC ; FP+4 -> SP ; (FP) -> FP)
-ret
-
-# Sys
-
-- Halt
-hlt
-
-# IO
-
-- Read from IO
-in A #port
-
-- Write to IO
-out A #port
-
+Флаги NZVC выставляются инструкцией `cmp` и арифметическими операциями.
+Условные переходы читают соответствующий флаг.

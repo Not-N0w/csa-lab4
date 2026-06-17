@@ -5,109 +5,58 @@ REGS.update({f"a{i}": 4 + i for i in range(4)})
 REGS["sp"] = 8
 REGS["fp"] = 9
 
-# arg_type
-A_NONE  = 0b000
-A_IND   = 0b001   # (Ax)
-A_DISP  = 0b010   # d(Ax)
-A_IDX   = 0b011   # d(Ax,Yx)
-A_IMM   = 0b100   # #imm
-A_REG   = 0b101   # Rx
-A_PRE   = 0b110   # -(Ax)
-A_POST  = 0b111   # (Ax)+
+A_NONE, A_IND, A_DISP, A_IDX, A_IMM, A_REG, A_PRE, A_POST = range(8)
+MEM_TYPES = (A_IND, A_DISP, A_IDX, A_PRE, A_POST)
 
-# instr_type
-ITYPE_SYS, ITYPE_ALU, ITYPE_CTL, ITYPE_IO = 0, 1, 2, 3
-
+SYS, ALU, CTL, IO = 0, 1, 2, 3
 INSTRS = {
-    # sys
-    "hlt": (0b0000, ITYPE_SYS),
-    "nop": (0b0001, ITYPE_SYS),
-    "mov": (0b0010, ITYPE_SYS),
-    # alu
-    "cmp": (0b0000, ITYPE_ALU),
-    "add": (0b0001, ITYPE_ALU),
-    "sub": (0b0010, ITYPE_ALU),
-    "mul": (0b0011, ITYPE_ALU),
-    "div": (0b0100, ITYPE_ALU),
-    "not": (0b0101, ITYPE_ALU),
-    "or":  (0b0110, ITYPE_ALU),
-    "and": (0b0111, ITYPE_ALU),
-    "xor": (0b1000, ITYPE_ALU),
-    "asl": (0b1001, ITYPE_ALU),
-    "asr": (0b1010, ITYPE_ALU),
-    "lsl": (0b1011, ITYPE_ALU),
-    "lsr": (0b1100, ITYPE_ALU),
-    "pass":(0b1101, ITYPE_ALU),
-    "inc": (0b1110, ITYPE_ALU),
-    "dec": (0b1111, ITYPE_ALU),
-    # control
-    "jmp": (0b0000, ITYPE_CTL),
-    "beq": (0b0001, ITYPE_CTL),
-    "bne": (0b0010, ITYPE_CTL),
-    "bmi": (0b0011, ITYPE_CTL),
-    "bpl": (0b0100, ITYPE_CTL),
-    "bvs": (0b0101, ITYPE_CTL),
-    "bcs": (0b0110, ITYPE_CTL),
-    "bcc": (0b0111, ITYPE_CTL),
-    "call":(0b1000, ITYPE_CTL),
-    "ret": (0b1001, ITYPE_CTL),
-    # io
-    "in":  (0b0000, ITYPE_IO),
-    "out": (0b0001, ITYPE_IO),
+    "hlt": (0, SYS), "nop": (1, SYS), "mov": (2, SYS),
+    "cmp": (0, ALU), "add": (1, ALU), "sub": (2, ALU), "mul": (3, ALU),
+    "div": (4, ALU), "not": (5, ALU), "or": (6, ALU), "and": (7, ALU),
+    "xor": (8, ALU), "asl": (9, ALU), "asr": (10, ALU), "lsl": (11, ALU),
+    "lsr": (12, ALU), "pass": (13, ALU), "inc": (14, ALU), "dec": (15, ALU),
+    "jmp": (0, CTL), "beq": (1, CTL), "bne": (2, CTL), "bmi": (3, CTL),
+    "bpl": (4, CTL), "bvs": (5, CTL), "bcs": (6, CTL), "bcc": (7, CTL),
+    "call": (8, CTL), "ret": (9, CTL),
+    "in": (0, IO), "out": (1, IO),
 }
-
-# control flow
 BRANCHES_REL = {"beq", "bne", "bmi", "bpl", "bvs", "bcs", "bcc"}
-BRANCHES_ABS = {"jmp", "call"}                                   
-NO_OPERANDS  = {"hlt", "nop", "ret"}
+BRANCHES_ABS = {"jmp", "call"}
+NO_OPERANDS = {"hlt", "nop", "ret"}
 
 
 def b16(v): return [(v >> 8) & 0xFF, v & 0xFF]
-def b32(v): return [(v >> 24) & 0xFF, (v >> 16) & 0xFF, (v >> 8) & 0xFF, v & 0xFF]
-def reg_byte(n): return [n & 0x0F]
-def disp16(v): return [(v >> 8) & 0xFF, v & 0xFF]
+def b32(v): return [(v >> i) & 0xFF for i in (24, 16, 8, 0)]
 
 
 def parse_int(tok):
     t = tok.lstrip("#").strip()
-    if t.startswith("'") and t.endswith("'") and len(t) == 3:
+    if len(t) == 3 and t[0] == t[-1] == "'":
         return ord(t[1])
     return int(t, 0)
 
+
 def parse_operand(tok):
     t = tok.strip().lower()
-
     if t in REGS:
         return A_REG, {"reg": REGS[t]}
-
     if tok.startswith("#"):
         return A_IMM, {"imm": parse_int(tok)}
-
-    m = re.fullmatch(r"\((\w+)\)\+", t)
-    if m:
-        return A_POST, {"reg": REGS[m.group(1)]}
-    m = re.fullmatch(r"-\((\w+)\)", t)
-    if m:
-        return A_PRE, {"reg": REGS[m.group(1)]}
-    m = re.fullmatch(r"\((\w+)\)", t)
-    if m:
-        return A_IND, {"reg": REGS[m.group(1)]}
-
+    for pat, at in ((r"\((\w+)\)\+", A_POST), (r"-\((\w+)\)", A_PRE), (r"\((\w+)\)", A_IND)):
+        m = re.fullmatch(pat, t)
+        if m:
+            return at, {"reg": REGS[m.group(1)]}
     m = re.fullmatch(r"(-?\w+)\((\w+),(\w+)\)", t)
     if m:
-        return A_IDX, {"disp": int(m.group(1), 0),
-                       "reg": REGS[m.group(2)],
-                       "idx": REGS[m.group(3)]}
+        return A_IDX, {"disp": int(m.group(1), 0), "reg": REGS[m.group(2)], "idx": REGS[m.group(3)]}
     m = re.fullmatch(r"(-?\w+)\((\w+)\)", t)
     if m:
         return A_DISP, {"disp": int(m.group(1), 0), "reg": REGS[m.group(2)]}
-
     return "LABEL", {"label": tok}
 
 
 def make_opcode(lb, instr, itype, a1, a2, is_addr_dest):
-    val = (lb << 15) | (instr << 11) | (itype << 8) | (a1 << 5) | (a2 << 2) | (is_addr_dest << 1)
-    return b16(val)
+    return b16((lb << 15) | (instr << 11) | (itype << 8) | (a1 << 5) | (a2 << 2) | (is_addr_dest << 1))
 
 
 def parse_line(line):
@@ -117,46 +66,57 @@ def parse_line(line):
     if line.endswith(":"):
         return ("label", line[:-1])
     parts = line.split(None, 1)
-    mnem = parts[0].lower()
-    size = "l"
+    mnem, size = parts[0].lower(), "l"
     if "." in mnem:
         mnem, size = mnem.split(".")
     operands = []
     if len(parts) > 1:
-        operands = [o.strip() for o in parts[1].split(",")]
+        depth, cur = 0, ""
+        for ch in parts[1]:
+            if ch == "(":
+                depth += 1
+            elif ch == ")":
+                depth -= 1
+            if ch == "," and depth == 0:
+                operands.append(cur.strip()); cur = ""
+            else:
+                cur += ch
+        if cur.strip():
+            operands.append(cur.strip())
     return ("instr", mnem, size, operands)
+
+
+def operand_size(at):
+    return {A_REG: 1, A_IMM: 4, A_IND: 1, A_POST: 1, A_PRE: 1, A_DISP: 3, A_IDX: 4}.get(at, 0)
 
 
 def instr_size(mnem, operands):
     if mnem in NO_OPERANDS:
         return 2
     if mnem in BRANCHES_REL:
-        return 2 + 2
+        return 4
     if mnem in BRANCHES_ABS:
-        return 2 + 4
-    size = 2
-    for op in operands:
-        at, _ = parse_operand(op)
-        if at == A_REG:        size += 1
-        elif at == A_IMM:      size += 4
-        elif at == A_IND:      size += 1
-        elif at == A_POST:     size += 1
-        elif at == A_PRE:      size += 1
-        elif at == A_DISP:     size += 1 + 2
-        elif at == A_IDX:      size += 1 + 1 + 2
-      
+        return 6
     if mnem in ("in", "out"):
-        size += 1
-    return size
+        return 4
+    return 2 + sum(operand_size(parse_operand(op)[0]) for op in operands)
+
+
+def emit_operand(at, info):
+    if at in (A_REG, A_IND, A_POST, A_PRE):
+        return [info["reg"] & 0xF]
+    if at == A_IMM:
+        return b32(info["imm"])
+    if at == A_DISP:
+        return [info["reg"] & 0xF] + b16(info["disp"] & 0xFFFF)
+    if at == A_IDX:
+        return [info["reg"] & 0xF, info["idx"] & 0xF] + b16(info["disp"] & 0xFFFF)
+    return []
 
 
 def gen_instr(mnem, size, operands, labels, pc):
     instr, itype = INSTRS[mnem]
-    lb = 1 if size == "l" else 0
-    if mnem in ("call", "ret"):
-        lb = 1
-    if mnem in ("hlt", "nop"):
-        lb = 0
+    lb = 0 if mnem in ("hlt", "nop") else (1 if size == "l" or mnem in ("call", "ret") else 0)
 
     if mnem in NO_OPERANDS:
         return make_opcode(lb, instr, itype, A_NONE, A_NONE, 0)
@@ -169,80 +129,89 @@ def gen_instr(mnem, size, operands, labels, pc):
     if mnem in BRANCHES_REL:
         at, info = parse_operand(operands[0])
         target = labels[info["label"]] if at == "LABEL" else parse_int(operands[0])
-        disp = (target - (pc + 4)) & 0xFFFF
-        return make_opcode(lb, instr, itype, A_NONE, A_NONE, 0) + disp16(disp)
+        return make_opcode(lb, instr, itype, A_NONE, A_NONE, 0) + b16((target - (pc + 4)) & 0xFFFF)
 
     if mnem in ("in", "out"):
         a1t, a1 = parse_operand(operands[0])
-        port = parse_int(operands[1])
-        out = make_opcode(lb, instr, itype, a1t, A_NONE, 0)
-        if a1t == A_REG:   out += reg_byte(a1["reg"])
-        elif a1t == A_IMM: out += b32(a1["imm"])
-        elif a1t in (A_IND, A_POST, A_PRE): out += reg_byte(a1["reg"])
-        out += [port & 0xFF]
-        return out
+        out = make_opcode(lb, instr, itype, a1t, A_NONE, 0) + emit_operand(a1t, a1)
+        return out + [parse_int(operands[1]) & 0xFF]
 
-    src = parse_operand(operands[0])
-    dst = parse_operand(operands[1]) if len(operands) > 1 else (A_NONE, {})
-    a1t, a1 = src
-    a2t, a2 = dst
-
-    mem_types = (A_IND, A_DISP, A_IDX, A_PRE, A_POST)
+    a1t, a1 = parse_operand(operands[0])
+    a2t, a2 = parse_operand(operands[1]) if len(operands) > 1 else (A_NONE, {})
     is_addr_dest = 0
-
-    if a2t in mem_types:
+    if a2t in MEM_TYPES:
         a1t, a1, a2t, a2 = a2t, a2, a1t, a1
         is_addr_dest = 1
-
-    out = make_opcode(lb, instr, itype, a1t, a2t, is_addr_dest)
-
-    def emit(at, info):
-        bs = []
-        if at == A_REG:
-            bs += reg_byte(info["reg"])
-        elif at == A_IMM:
-            bs += b32(info["imm"])
-        elif at == A_IND:
-            bs += reg_byte(info["reg"])
-        elif at == A_POST:
-            bs += reg_byte(info["reg"])
-        elif at == A_PRE:
-            bs += reg_byte(info["reg"])
-        elif at == A_DISP:
-            bs += reg_byte(info["reg"]) + disp16(info["disp"] & 0xFFFF)
-        elif at == A_IDX:
-            bs += reg_byte(info["reg"]) + reg_byte(info["idx"]) + disp16(info["disp"] & 0xFFFF)
-        return bs
-
-    out += emit(a1t, a1)
-    out += emit(a2t, a2)
-    return out
+    return make_opcode(lb, instr, itype, a1t, a2t, is_addr_dest) + emit_operand(a1t, a1) + emit_operand(a2t, a2)
 
 
 def assemble(text):
-    parsed = []
-    for line in text.splitlines():
-        p = parse_line(line)
-        if p:
-            parsed.append(p)
-
-    labels = {}
-    pc = 0
+    parsed = [p for p in (parse_line(l) for l in text.splitlines()) if p]
+    labels, pc = {}, 0
     for p in parsed:
         if p[0] == "label":
             labels[p[1]] = pc
         else:
-            _, mnem, size, operands = p
-            pc += instr_size(mnem, operands)
+            pc += instr_size(p[1], p[3])
+    out, pc = [], 0
+    for p in parsed:
+        if p[0] == "label":
+            continue
+        code = gen_instr(p[1], p[2], p[3], labels, pc)
+        out += code
+        pc += len(code)
+    return out
 
-    out = []
-    pc = 0
+
+def disasm_map(text):
+    parsed = [p for p in (parse_line(l) for l in text.splitlines()) if p]
+    labels, pc = {}, 0
+    for p in parsed:
+        if p[0] == "label":
+            labels[p[1]] = pc
+        else:
+            pc += instr_size(p[1], p[3])
+    result, pc = {}, 0
     for p in parsed:
         if p[0] == "label":
             continue
         _, mnem, size, operands = p
+        result[pc] = _mnemonic_text(mnem, size, operands)
+        pc += instr_size(mnem, operands)
+    return result
+
+
+def _mnemonic_text(mnem, size, operands):
+    no_sfx = NO_OPERANDS | BRANCHES_REL | BRANCHES_ABS | {"in", "out"}
+    sfx = "." + size if mnem not in no_sfx else ""
+    if operands:
+        return f"{mnem}{sfx} " + ", ".join(operands)
+    return f"{mnem}{sfx}"
+
+
+def code_hex(text):
+    parsed = [p for p in (parse_line(l) for l in text.splitlines()) if p]
+    labels, pc = {}, 0
+    for p in parsed:
+        if p[0] == "label":
+            labels[p[1]] = pc
+        else:
+            pc += instr_size(p[1], p[3])
+    rows, pc = [], 0
+    for p in parsed:
+        if p[0] == "label":
+            rows.append((None, None, p[1] + ":"))
+            continue
+        _, mnem, size, operands = p
         code = gen_instr(mnem, size, operands, labels, pc)
-        out += code
+        hexcode = "".join(f"{b:02X}" for b in code)
+        rows.append((pc, hexcode, _mnemonic_text(mnem, size, operands)))
         pc += len(code)
-    return out
-    
+    width = max((len(h) for _, h, _ in rows if h), default=0)
+    lines = []
+    for addr, hexcode, mnem in rows:
+        if addr is None:
+            lines.append(mnem)
+        else:
+            lines.append(f"{addr:04X} - {hexcode:<{width}} - {mnem}")
+    return "\n".join(lines)

@@ -33,7 +33,6 @@ signal_priority = {s: i for i, s in enumerate(signal_order)}
 def sort_signals(signals):
     return sorted(signals, key=lambda s: signal_priority[s])
 
-
 class ControlUnit:
 
     def is_long(self):
@@ -141,7 +140,6 @@ class ControlUnit:
                 self.pc = int(addr, 2)
             else:
                 self.pc += 1
-
             return []
 
     def get_from_ir(self, sec):
@@ -153,7 +151,7 @@ class ControlUnit:
         if sec == "is_addr_dest": return self.ir[14]
         else: raise Exception("Unknown ir section: " + sec)
 
-    def __init__(self):
+    def reset(self):
         self.pc = 0
         self.ja1 = 0
         self.ja2 = 0
@@ -162,11 +160,12 @@ class ControlUnit:
         self.nzvc_register_value = "0" * 4
         self.ir_latched = False
 
+    def __init__(self):
+        self.reset()
         self.microinstructions = []
         with open(microinstructions_file, "rb") as file:
             while chunk := file.read(11):
                 bits = bin(int.from_bytes(chunk, byteorder="big"))[2:]
                 bits = bits.zfill(88)
-
                 instr = bits[-84:]
                 self.microinstructions.append(instr)

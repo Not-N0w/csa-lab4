@@ -3,3 +3,5 @@ docs/todo.txt
 **/__pycache__/
 .DS_Store
 docs/todo.txt
+out.im.bin
+out.dm.bin
