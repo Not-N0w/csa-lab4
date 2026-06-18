@@ -29,7 +29,6 @@ def start(layer):
     im = read_im(IM_BIN)
     dm = read_dm(DM_BIN)
     io = eval(open(IO_IN).read())
-    print(disasm)
     run(im, dm, io, 200000, LOG, disasm)
 
 

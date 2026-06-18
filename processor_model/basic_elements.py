@@ -20,6 +20,14 @@ class Register(Source):
         if self.source is None:
             raise Exception("Register source is not set")
         return self.source.get()
+    
+    def fill(self, is_long):
+        if self.source is None:
+            raise Exception("Register source is not set")
+        if is_long:
+            self.value = self.source.get()
+        else:
+            self.value = (self.value & 0xFFFFFF00) | (self.source.get() & 0xFF)
 
     def get(self):
         return self.value & ((1 << self.size) - 1)

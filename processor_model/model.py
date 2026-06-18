@@ -76,7 +76,9 @@ def signal_execute(signal):
         name = signal[6:]
         if name == "nzvc":
             registers["nzvc"].value = alu.get_nzvc()
-        elif name in registers:
+        elif name in ["d0", "d1", "d2", "d3", "a0", "a1", "a2", "a3", "sp", "fp"]:
+            registers[name].fill(control_unit.is_long())
+        else:
             registers[name].value = registers[name].get_source_value()
     elif signal.startswith("m1_"):
         muxes["mux1"].set_signal(signal[3:])
