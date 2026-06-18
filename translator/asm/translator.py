@@ -129,7 +129,7 @@ def gen_instr(mnem, size, operands, labels, pc):
     if mnem in BRANCHES_REL:
         at, info = parse_operand(operands[0])
         target = labels[info["label"]] if at == "LABEL" else parse_int(operands[0])
-        return make_opcode(lb, instr, itype, A_NONE, A_NONE, 0) + b16((target - (pc + 4)) & 0xFFFF)
+        return make_opcode(lb, instr, itype, A_NONE, A_NONE, 0) + b16((target - (pc + 4)) & 0xFFFF) 
 
     if mnem in ("in", "out"):
         a1t, a1 = parse_operand(operands[0])
@@ -180,14 +180,12 @@ def disasm_map(text):
         pc += instr_size(mnem, operands)
     return result
 
-
 def _mnemonic_text(mnem, size, operands):
     no_sfx = NO_OPERANDS | BRANCHES_REL | BRANCHES_ABS | {"in", "out"}
     sfx = "." + size if mnem not in no_sfx else ""
     if operands:
         return f"{mnem}{sfx} " + ", ".join(operands)
     return f"{mnem}{sfx}"
-
 
 def code_hex(text):
     parsed = [p for p in (parse_line(l) for l in text.splitlines()) if p]

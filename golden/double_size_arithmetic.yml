@@ -47,4 +47,4 @@ out_code_hex: '0000 - 83A00000       - in D0, #0
   0027 - 8BA00301       - out D3, #1
 
   002B - 0000           - hlt'
-out_stdout: "=== IO OUTPUT ===\n  io[1] out: hex=[7fffffff bbbbbbbb] str=\"ÿ»\"\n"
+out_stdout: "=== IO OUTPUT ===\n  io[1] out: hex=[7fffffff bbbbbbbc] str=\"ÿ¼\"\n"

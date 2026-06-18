@@ -102,10 +102,19 @@ class ALU(Source):
         return self._raw() & self.MASK
 
     def get_nzvc(self):
-        res = self.get()
-        n = "1" if res & 0x80000000 else "0"
-        z = "1" if res == 0 else "0"
-        return int(n + z + "00", 2)
+            raw = self._raw()
+            res = raw & self.MASK
+            a, b, s = self.op1.get(), self.op2.get(), self.signal
+            n = 1 if res & 0x80000000 else 0
+            z = 1 if res == 0 else 0
+            v = c = 0
+            if s == "alu_add":
+                c = 1 if raw > 0xFFFFFFFF else 0
+                v = 1 if ((a >> 31) == (b >> 31) and (res >> 31) != (a >> 31)) else 0
+            elif s in ("alu_sub", "alu_cmp"):
+                c = 1 if b < a else 0
+                v = 1 if ((a >> 31) != (b >> 31) and (res >> 31) != (b >> 31)) else 0
+            return int(f"{n}{z}{v}{c}", 2)
 
 
 class MemoryUnit(Source):
