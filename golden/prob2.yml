@@ -1,7 +1,19 @@
-in_source: '(defun fib (x y state) (if (< 4000000 y) 0 (if (= state 1) (+ y (fib y
-  (+ x y) 2)) (if (= state 0) (fib y (+ x y) 1) (fib y (+ x y) 0)))))
+in_source: |
+  (defun fib (x y state)
+      (if (< 4000000 y)
+          0
+          (if (= state 1)
+              (+ y
+                  (fib y (+ x y) 2))
+              (if (= state 0)
+                  (fib y (+ x y) 1)
+                  (fib y (+ x y) 0)
+              )
+          )
+      )
+  )
 
-  (print (fib 1 1 0))'
+  (print (fib 1 1 0))
 in_stdin: ''
 out_code_hex: '0000 - 90940000F00008 - mov.l #0xF000, SP
 

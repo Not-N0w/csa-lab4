@@ -1,13 +1,43 @@
-in_source: '(alloc arr 100)
+in_source: |
+  (alloc arr 100)
 
-  (setq n 0) (setq x (read)) (while (!= x 0) (lset arr n x) (setq n (+ n 1)) (setq
-  x (read)))
+  (setq n 0)
+  (setq x (read))
 
-  (setq i 0) (while (< i n) (setq j 0) (while (< j (- (- n i) 1)) (if (< (lget arr
-  (+ j 1)) (lget arr j)) (progn (setq tmp (lget arr j)) (lset arr j (lget arr (+ j
-  1))) (lset arr (+ j 1) tmp)) 0) (setq j (+ j 1))) (setq i (+ i 1)))
+  (while (!= x 0)
+      (lset arr n x)
+      (setq n (+ n 1))
+      (setq x (read))
+  )
 
-  (setq k 0) (while (< k n) (print (lget arr k)) (setq k (+ k 1)))'
+  (setq i 0)
+
+  (while (< i n)
+      (setq j 0)
+
+      (while (< j (- (- n i) 1))
+          (if (< (lget arr (+ j 1))
+                  (lget arr j))
+              (progn
+                  (setq tmp (lget arr j))
+                  (lset arr j (lget arr (+ j 1)))
+                  (lset arr (+ j 1) tmp)
+              )
+              0
+          )
+
+          (setq j (+ j 1))
+      )
+
+      (setq i (+ i 1))
+  )
+
+  (setq k 0)
+
+  (while (< k n)
+      (print (lget arr k))
+      (setq k (+ k 1))
+  )
 in_stdin: 6,5,4,1,2,3,0
 in_mode: numbers
 out_code_hex: '0000 - 90940000F00008 - mov.l #0xF000, SP

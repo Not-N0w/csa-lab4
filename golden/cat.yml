@@ -1,4 +1,10 @@
-in_source: (setq x (read)) (while (!= x 0) (print x) (setq x (read)))
+in_source: |
+  (setq x (read))
+
+  (while (!= x 0)
+      (print x)
+      (setq x (read))
+  )
 in_stdin: 1,2,3
 in_mode: numbers
 out_code_hex: '0000 - 90940000F00008 - mov.l #0xF000, SP

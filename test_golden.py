@@ -48,3 +48,4 @@ def test(path):
     else:
         assert hexlist.strip() == c["out_code_hex"].strip(), "дизассемблер не совпал"
         assert stdout.strip() == c["out_stdout"].strip(), "вывод не совпал"
+
